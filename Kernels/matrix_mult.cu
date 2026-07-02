@@ -8,10 +8,11 @@ __global__ void matrix_mult (int *a, int *b, int *c, int M, int N, int K) {
   int row = blockIdx.y * blockDim.y + threadIdx.y;
   int col = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < M && col < K) {
-    c[row * K + col] = 0;
+    int sum = 0;
     for (int i{}; i < N; i++) {
-      c[row * K + col] += a[row * N + i] * b[i * K + col];
+      sum += a[row * N + i] * b[i * K + col];
     }
+    c[row * K + col] = sum
   }
 }
 
