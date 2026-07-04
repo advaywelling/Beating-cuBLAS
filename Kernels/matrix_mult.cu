@@ -1,25 +1,57 @@
-%%writefile matrixmult.cu
+%%writefile opt_mm.cu
 #include <iostream>
 #include <cstdlib>
 #include <vector>
 #include <cassert>
+#include <cuda_runtime.h>
 
-__global__ void matrix_mult (int *a, int *b, int *c, int M, int N, int K) {
+#define TILE 16
+
+__global__ void matrix_mult(float *a, float *b, float *c, int M, int N, int K) {
   int row = blockIdx.y * blockDim.y + threadIdx.y;
   int col = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < M && col < K) {
-    int sum = 0;
+    float sum = 0;
     for (int i{}; i < N; i++) {
       sum += a[row * N + i] * b[i * K + col];
     }
-    c[row * K + col] = sum
+    c[row * K + col] = sum;
   }
 }
 
-void check_error(std::vector<int> &a, std::vector<int> &b, std::vector<int> &c, int M, int N, int K) {
+__global__ void tiled_matrix_mult(float *a, float *b, float *c, int M, int N, int K) {
+  __shared__ float share_A[TILE][TILE];
+  __shared__ float share_B [TILE][TILE];
+
+  int by = blockIdx.y;
+  int bx = blockIdx.x;
+  int ty = threadIdx.y;
+  int tx = threadIdx.x;
+
+  int row = by * blockDim.y + ty;
+  int col = bx * blockDim.x + tx;
+
+  float sum = 0;
+
+  // load shared mem
+  for (int i{}; i < N / TILE; i++) {
+    share_A[ty][tx] = a[row*N + (i * TILE + tx)];
+    share_B[ty][tx] = b[(i * TILE + ty) * K + col];
+
+    __syncthreads();
+
+    for(int j{}; j < TILE; j++) {
+      sum += share_A[ty][j] * share_B[j][tx];
+    }
+    __syncthreads();
+  }
+  c[row * K + col] = sum;
+}
+
+void check_error(std::vector<float> &a, std::vector<float> &b, std::vector<float> &c, int M, int N, int K) {
     for(int i{}; i < M; i++) {
         for(int j{}; j < K; j++) {
-            int sum = 0;
+            float sum = 0;
             for(int idx{}; idx < N; idx++) {
                 sum += a[i * N + idx] * b[idx * K + j];
             }
@@ -31,17 +63,17 @@ void check_error(std::vector<int> &a, std::vector<int> &b, std::vector<int> &c, 
 int main() {
 
   constexpr int M = 1 << 10;
-  constexpr int N = 1 << 8;
+  constexpr int N = 1 << 10;
   constexpr int K = 1 << 10;
-  constexpr size_t size_A = sizeof(int) * M * N;
-  constexpr size_t size_B = sizeof(int) * N * K;
-  constexpr size_t size_C = sizeof(int) * M * K;
+  constexpr size_t size_A = sizeof(float) * M * N;
+  constexpr size_t size_B = sizeof(float) * N * K;
+  constexpr size_t size_C = sizeof(float) * M * K;
 
-  std::vector<int> a;
+  std::vector<float> a;
   a.reserve(M * N);
-  std::vector<int> b;
+  std::vector<float> b;
   b.reserve(N * K);
-  std::vector<int> c;
+  std::vector<float> c;
   c.resize(M * K);
 
   for (int i{}; i < M * N; i++) {
@@ -51,7 +83,7 @@ int main() {
     b.push_back(rand() % 100);
   }
 
-  int *d_a, *d_b, *d_c;
+  float *d_a, *d_b, *d_c;
   cudaMalloc(&d_a, size_A);
   cudaMalloc(&d_b, size_B);
   cudaMalloc(&d_c, size_C);
@@ -62,7 +94,7 @@ int main() {
   dim3 dimBlock(16, 16);
   dim3 dimGrid((K + dimBlock.x - 1) / dimBlock.x,(M + dimBlock.y - 1) / dimBlock.y);
 
-  matrix_mult<<<dimGrid, dimBlock>>>(d_a, d_b, d_c, M, N, K);
+  tiled_matrix_mult<<<dimGrid, dimBlock>>>(d_a, d_b, d_c, M, N, K);
 
   cudaMemcpy(c.data(), d_c, size_C, cudaMemcpyDeviceToHost);
 
