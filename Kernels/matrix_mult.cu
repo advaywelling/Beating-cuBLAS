@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <vector>
 #include <cassert>
+#include <cmath>
 #include <cuda_runtime.h>
 
 #define TILE 16
@@ -49,13 +50,15 @@ __global__ void tiled_matrix_mult(float *a, float *b, float *c, int M, int N, in
 }
 
 void check_error(std::vector<float> &a, std::vector<float> &b, std::vector<float> &c, int M, int N, int K) {
-    for(int i{}; i < M; i++) {
-        for(int j{}; j < K; j++) {
+    for (int i{}; i < M; i++) {
+        for (int j{}; j < K; j++) {
             float sum = 0;
-            for(int idx{}; idx < N; idx++) {
+            for (int idx{}; idx < N; idx++) {
                 sum += a[i * N + idx] * b[idx * K + j];
             }
-            assert(c[i * K + j] == sum);
+            float diff = std::fabs(c[i * K + j] - sum);
+            float tol = 1e-2f * std::fabs(sum);   // relative tolerance
+            assert(diff <= tol + 1e-3f);          // + small absolute floor
         }
     }
 }
