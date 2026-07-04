@@ -57,8 +57,8 @@ void check_error(std::vector<float> &a, std::vector<float> &b, std::vector<float
                 sum += a[i * N + idx] * b[idx * K + j];
             }
             float diff = std::fabs(c[i * K + j] - sum);
-            float tol = 1e-2f * std::fabs(sum);   // relative tolerance
-            assert(diff <= tol + 1e-3f);          // + small absolute floor
+            float tol = 1e-2f * std::fabs(sum); 
+            assert(diff <= tol + 1e-3f);         
         }
     }
 }
