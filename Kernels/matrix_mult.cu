@@ -21,8 +21,8 @@ __global__ void matrix_mult(float *a, float *b, float *c, int M, int N, int K) {
 }
 
 __global__ void tiled_matrix_mult(float *a, float *b, float *c, int M, int N, int K) {
-  __shared__ float share_A[TILE][TILE];
-  __shared__ float share_B [TILE][TILE];
+  __shared__ float share_a[TILE][TILE];
+  __shared__ float share_b[TILE][TILE];
 
   int by = blockIdx.y;
   int bx = blockIdx.x;
@@ -32,21 +32,21 @@ __global__ void tiled_matrix_mult(float *a, float *b, float *c, int M, int N, in
   int row = by * blockDim.y + ty;
   int col = bx * blockDim.x + tx;
 
-  float sum = 0;
-
-  // load shared mem
-  for (int i{}; i < N / TILE; i++) {
-    share_A[ty][tx] = a[row*N + (i * TILE + tx)];
-    share_B[ty][tx] = b[(i * TILE + ty) * K + col];
+  float sum = 0.0f;
+  for(int i{}; i < (N + TILE - 1)/ TILE; i++) {
+    share_a[ty][tx] = (row < M && (i * TILE + tx) < N) ? a[(row * N) + (i * TILE + tx)] : 0.0f;
+    share_b[ty][tx] = ((i * TILE + ty) < N && col < K) ? b[((i * TILE + ty) * K + col)] : 0.0f;
 
     __syncthreads();
 
     for(int j{}; j < TILE; j++) {
-      sum += share_A[ty][j] * share_B[j][tx];
+      sum += share_a[ty][j] * share_b[j][tx];
     }
     __syncthreads();
   }
-  c[row * K + col] = sum;
+  if (row < M && col < K) {
+    c[row * K + col] = sum;
+  }
 }
 
 void check_error(std::vector<float> &a, std::vector<float> &b, std::vector<float> &c, int M, int N, int K) {
@@ -57,8 +57,8 @@ void check_error(std::vector<float> &a, std::vector<float> &b, std::vector<float
                 sum += a[i * N + idx] * b[idx * K + j];
             }
             float diff = std::fabs(c[i * K + j] - sum);
-            float tol = 1e-2f * std::fabs(sum); 
-            assert(diff <= tol + 1e-3f);         
+            float tol = 1e-2f * std::fabs(sum);   // relative tolerance
+            assert(diff <= tol + 1e-3f);          // + small absolute floor
         }
     }
 }
@@ -94,7 +94,7 @@ int main() {
   cudaMemcpy(d_a, a.data(), size_A, cudaMemcpyHostToDevice);
   cudaMemcpy(d_b, b.data(), size_B, cudaMemcpyHostToDevice);
 
-  dim3 dimBlock(16, 16);
+  dim3 dimBlock(TILE, TILE);
   dim3 dimGrid((K + dimBlock.x - 1) / dimBlock.x,(M + dimBlock.y - 1) / dimBlock.y);
 
   tiled_matrix_mult<<<dimGrid, dimBlock>>>(d_a, d_b, d_c, M, N, K);
