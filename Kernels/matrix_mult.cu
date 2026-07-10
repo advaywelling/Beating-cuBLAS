@@ -77,7 +77,7 @@ int main() {
   std::vector<float> b;
   b.reserve(N * K);
   std::vector<float> c;
-  c.resize(M * K);
+  c.resize(M * K); // fills with 0s
 
   for (int i{}; i < M * N; i++) {
     a.push_back(rand() % 100);
