@@ -1,2 +1,2 @@
 # Kernels
-Learning GPU programming by writing kernels
+Learning GPU programming by tryna overthrow cuBLAS
