@@ -1,4 +1,4 @@
-#pragme once
+#pragma once
 #include <cuda_runtime.h>
 
 __global__ void naive(float *a, float *b, float *c, int M, int K, int N) {

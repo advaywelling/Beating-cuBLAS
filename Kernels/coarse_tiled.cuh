@@ -1,6 +1,8 @@
 #pragma once
 #include <cuda_runtime.h> 
 
+constexpr int BM = 64, BN = 64, BK = 8, TM = 8;
+
 __global__ void coarse_tiled(float *a, float *b, float *c, int M, int K, int N) {
   __shared__ float share_a[BM * BK];
   __shared__ float share_b[BK * BN];

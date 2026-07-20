@@ -1,6 +1,8 @@
 #pragma once
 #include <cuda_runtime.h>
 
+#define TILE 16
+
 __global__ void tiled(float *a, float *b, float *c, int M, int K, int N) {
   __shared__ float share_a[TILE][TILE];
   __shared__ float share_b[TILE][TILE];

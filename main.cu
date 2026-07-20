@@ -5,9 +5,9 @@
 
 #include "common.cuh"
 #include "check.cuh"
-#include "kernels/naive.cuh"
-#include "kernels/tiled.cuh"
-#include "kernels/coarse_tiled.cuh"
+#include "Kernels/naive.cuh"
+#include "Kernels/tiled.cuh"
+#include "Kernels/coarse_tiled.cuh"
 
 int main() {
   const int M = 1024, K = 1024, N = 1024;
