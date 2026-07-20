@@ -11,7 +11,7 @@ __global__ void coarse_tiled(float *a, float *b, float *c, int M, int K, int N) 
   const int cRow = blockIdx.y; // tile index in C
   const int cCol = blockIdx.x;
 
-  int aRow = tid / BK;
+  int aRow = tid / BK; // locations in tile
   int aCol = tid % BK;
   int bRow = tid / BN;
   int bCol = tid % BN;
@@ -22,8 +22,13 @@ __global__ void coarse_tiled(float *a, float *b, float *c, int M, int K, int N) 
 
   // iterate over common edge in steps of depth BK
   for (int bkIdx{}; bkIdx < K; bkIdx += BK) {
-    share_a[aRow * BK + aCol] = a[(cRow * BM + aRow) * K + bkIdx + aCol];
-    share_b[bRow * BN + bCol] = b[((bkIdx + bRow) * N + (cCol * BN + bCol))];
+    const int aRow_global = cRow * BM + aRow; // where aRow sits in A
+    const int aCol_global = bkIdx + aCol; // where aCol sits in A
+    share_a[aRow * BK + aCol] = (aRow_global < M && aCol_global < K) ? a[aRow_global * K + aCol_global] : 0.0f;
+
+    const int bRow_global = bkIdx + bRow; // where bRow sits in B
+    const int bCol_global = cCol * BN + bCol; // wehre bCol sits in B
+    share_b[bRow * BN + bCol] = (bRow_global < K && bCol_global < N) ? b[bRow_global * N + bCol_global] : 0.0f;
 
     __syncthreads();
 
@@ -37,7 +42,9 @@ __global__ void coarse_tiled(float *a, float *b, float *c, int M, int K, int N) 
 
     __syncthreads();
   }
-  for (int i{}; i < TM; i++) {
-    c[(cRow * BM + threadRow * TM + i) * N + (cCol * BN + threadCol)] = threadResults[i];
+  const int cCol_global = cCol * BN + threadCol;
+  for (int i = 0; i < TM; i++) {
+    const int cRow_global = cRow * BM + threadRow * TM + i;
+    if (cRow_global < M && cCol_global < N) c[cRow_global * N + cCol_global] = threadResults[i];
   }
 }

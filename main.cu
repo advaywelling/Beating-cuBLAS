@@ -29,8 +29,10 @@ int main() {
   CUDA_CHECK(cudaMemcpy(dB, hB.data(), sB, cudaMemcpyHostToDevice));
 
   // launch config
-  dim3 blk16(TILE, TILE), grd16((N+TILE-1)/TILE, (M+TILE-1)/TILE);
-  dim3 blkC(512),         grdC(N/BN, M/BM);
+  dim3 blk16(TILE, TILE);
+  dim3 grd16((N+TILE-1)/TILE, (M+TILE-1)/TILE);
+  dim3 blkC(512);
+  dim3 grdC((N + BN - 1) / BN, (M + BM - 1) / BM);
 
   auto run_naive  = [&]{ naive       <<<grd16, blk16>>>(dA,dB,dC,M,K,N); };
   auto run_tiled  = [&]{ tiled       <<<grd16, blk16>>>(dA,dB,dC,M,K,N); };
